@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQLE Analyzer v0.1</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 200px;
+        }
+
+        button {
+            margin-top: 10px;
+            padding: 10px;
+        }
+
+        .results {
+            margin-top: 20px;
+        }
+
+        pre {
+            background-color: #f4f4f4;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .match {
+            color: green;
+        }
+
+        .mismatch {
+            color: red;
+        }
+
+        .gap {
+            color: gray;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>SQLE analyzer v0.1</h1>
+    <p>Input your sequence below and compare it to the wild-type sequence to identify exon mutations.</p>
+
+    <textarea id="userSequence" placeholder="Paste your sequence here..."></textarea>
+    <button onclick="findExonMutations()">Compare Exons</button>
+    <!--Demon button-->
+    <button onclick="document.getElementById('userSequence').value = demo_Sequence">Demo</button>
+
+    <div class="results" id="results"></div>
+
+    <script>
+        // 預設的 wild-type 序列
+        const wildTypeSequence = "ATGGTTGTAGAGGCTCCTCCCTGCCCCCAGAGCGGCAACGGCTTTGCGAATGGCTCCGCGAAGCCCAAGGCATACCGCGACGAAGCCGAGCGGCGACGATACGAACACCACGAAGCGGACGTCGTGATAATTGGCGCAGGCATTGCTGGATGTGCGCTGGCCGTTGCGTTGGGGAACCAGGGACGCAGCGTTATCTTGCTTGAGAGGTCGTTGAAGGAGCCTGATCGGATAGTGGGAGAGCTGCTCCAACCCGGCGGGGTGAGAGCCCTTGAACAACTCGGCCTGAGAGATTGCCTGGAGGGAATAGATGCCGTAAGGACATACGGCTACGATGTTATATATTTTGGCAATGGTGTGAAGATACCCTTCCCCAGCGATGCCAACGATAAGATCCTGGAAGGCAGGTGTTTCCACCACGGCCGCTTTATCATGCGCCTTCGAGAGGCAGCTGCCGCGAACCCAAATGTCACCATTGTCGAGACCAAGGCTGTTTCTACCATAAAATCCACGCACACAGGGGATGTCCTTGGAGTTCAATGCCAGACTGATGGCAAGCAAGACTTCTATTTTGGGCCCCTGACCGTTGTCGCGGATGGCTATGCCTCTACGTTCCGAAAGGAATATCTCCCCATACAACCAGTCGCCAAATCGAAATTCTGGGGCCTGGAGCTTATAGATGCGAAATTACCCATACCGGGCCACGGCCATGTTGTCCTGGGTGATTTCCCGCCCATATTGATATACCAGATTGGAGAACATGAGACTCGAATCCTAATTGATATACCGGACAACCTGCCTTCAGCGTCGGTTGCCAATGGAGGTGTAAAGGGTCACATGCGGAATGTCGTCCTTCCTTCTTTGCCAGAGTGTATTCGGCCCTCATTTGAAGCTGCGTTGGAGAAGGGAGGGTTCCGGTCAATGCCAAATTCCTTCCTCAGACCTGTCACGAATAGGATCCCCGGATTGATGTTCCTAGGTGACTCCCTAAACATGCGTCACCCGTTAACTGGTGGCGGTATGACCGTGGCATTTAACGATGTCGTTCTCCTCCGGAATCTACTTAGTCCAGAGGCCGTACCTGATTTGAGTGATACCAAACTTGTTTTGAAACAGCTCTCCAAGTTCCACTGGCAACGGAAGTCATTGATCTCTGTCATCAATATTCTTGCCCAGTCCTTATACTCTATATTCGCCGCTGGTGGTAAGCATATGTTTTCACTCCCTTTGTTACTGGTTAGTGGTTACTAACAGCCTACTATGTAGACCCTAATTTGAAAGTCCTGCAACGAGGCTGCTTCAGGTATTTCCAACTTGGACTTATAGATGGCCCCATCGGACTACTGTCAGGCATCATTCGATCACCCTTGGTTCTATTACGACATTTTTACTCCGTAGCCTTCCTCGCTATCTGGCTACACCTTACTAGCAAACCCATCTACCTCCTCCCCTTGACCCTTTTCGAGTGCATAATCGTATTTCTTACTGCCTGCAGGGTCATCCTTCCTTTCGTATTTGCCGAACTTCAAAGCTAG";
+        const wildTypeExon = [[1, 1201], [1264, 1532]];
+        //debug
+        //const wildTypeSequence = "AATCGG";
+        //const wildTypeExon = [[5,10],[101,110]];
+        const wildTypeAA = "MVVEAPPCPQSGNGFANGSAKPKAYRDEAERRRYEHHEADVVIIGAGIAGCALAVALGNQGRSVILLERSLKEPDRIVGELLQPGGVRALEQLGLRDCLEGIDAVRTYGYDVIYFGNGVKIPFPSDANDKILEGRCFHHGRFIMRLREAAAANPNVTIVETKAVSTIKSTHTGDVLGVQCQTDGKQDFYFGPLTVVADGYASTFRKEYLPIQPVAKSKFWGLELIDAKLPIPGHGHVVLGDFPPILIYQIGEHETRILIDIPDNLPSASVANGGVKGHMRNVVLPSLPECIRPSFEAALEKGGFRSMPNSFLRPVTNRIPGLMFLGDSLNMRHPLTGGGMTVAFNDVVLLRNLLSPEAVPDLSDTKLVLKQLSKFHWQRKSLISVINILAQSLYSIFAAGDPNLKVLQRGCFRYFQLGLIDGPIGLLSGIIRSPLVLLRHFYSVAFLAIWLHLTSKPIYLLPLTLFECIIVFLTACRVILPFVFAELQS"
+        const demo_Sequence = "AGCTGGCAGACTTCCTTTATCCCCGGCAGGCAGACGATGCAGCGACGGTGACAGCGACAAGTGCCAGATTTTTATCCCCTTCGACAAGTTACTACGATGGTTGTAGAGGCTCCTCCCTGCCCCCAGAGCGGCAACGGCTTTGCGAATGGCTCCGCGAAGCCCAAGGCATACCGCGACGAAGCCGAGCGGCGACGATACGAACACCACGAAGCGGACGTCGTGATAATTGGCGCAGGCATTGCTGGATGTGCGCTGGCCGTTGCGTTGGGGAACCAGGGACGCAGCGTTATCTTGCTTGAGAGGTCGTTGAAGGAGCCTGATCGGATAGTGGGAGAGCTGCTCCAACCCGGCGGGGTGAGAGCCCTTGAACAACTCGGCCTGAGAGATTGCCTGGAGGGAATAGATGCCGTAAGGACATACGGCTACGATGTTATATATTTTGGCAATGGTGTGAAGATACCCTTCCCCAGCGATGCCAACGATAAGATCCTGGAAGGCAGGTGTTTCCACCACGGCCGCTTTATCATGCGCCTTCGAGAGGCAGCTGCCGCGAACCCAAATGTCACCATTGTCGAGACCAAGGCTGTTTCTACCATAAAATCCACGCACACAGGGGATGTCCTTGGAGTTCAATGCCAGACTGATGGCAAGCAAGACTTCTATTTTGGGCCCCTGACCGTTGTCGCGGATGGCTATGCCTCTACGTTCCGAAAGGAATATCTCCCCATACAACCAGTCGCCAAATCGAAATTCTGGGGCCTGGAGCTTATAGATGCGAAATTACCCATACCGGGCCACGGCCATGTTGTCCTGGGTGATTTCCCGCCCATATTGATATACCAGATTGGAGAACATGAGACTCGAATCCTAATTGATATACCGGACAACCTGCCTTCAGCGTCGGTTGCCAATGGAGGTGTAAAGGGTCACATGCGGAATGTCGTCCTTCCTTCTTTGCCAGAGTGTATTCGGCCCTCATTTGAAGCTGCGTTGGAGAAGGGAGGGTTCCGGTCAATGCCAAATTCCTTCCTCAGACCTGTCACGAATAGGATCCCCGGATTGATGTTCCTAGGTGACTCCCTAAACATGCGTCACCCGTTAACTGGTGGCGGTATGACCGTGGCATTTAACGATGTCGTTCTCCTCCGGAATCTACTTAGTCCAGAGGCCGTACCTGATTTGAGTGATACCAAACTTGTTTTGAAACAGCTCTCCAAGTTCCACTGGCAACGGAAGTCATTGATCTCTGTCATCAATATTCTTGCCCAGTCCTTATACTCTATACTCGCCGCTGGTGGTAAGCATATGTTTTCACTCCCTTTGTTACTGGTTAGTGGTTACTAACATCCTACTATGTAGACCCTAATTTGAAAGTCCTGCAACGAGGCTGCTTCAGGTATTTCCAACTTGGACTTATAGATGGCCCCATCGGACTACTGTCAGGCATCATTCGATCACCCTTGGTTCTATTACGACATTTTTACTCCGTAGCCTTCCTCGCTATCTGGCTACACCTTACTAGCAAACCCATCTACCTCCTCCCCTTGACCCTTTTCGAGTGCATAATCGTATTTCTTACTGCCTGCAGGGTCATCCTTCCTTTCGTATTTGCCGAACTTCAAAGCTAGACAGATAGGCTTATCTCTAGCTC";
+        // 對齊分數系統，指定比對分數、錯誤匹配懲罰、gap 懲罰和 gap 延續分數
+        const matchScore = 2;
+        const mismatchScore = -1;
+        const gapOpenScore = -8; // gap 開啟懲罰
+        const gapExtendScore = 0; // 連續 gap 懲罰
+        function in_exon_region(pos, exon_region) {
+            for (let i = 0; i < exon_region.length; i++) {
+                if (pos >= exon_region[i][0] && pos <= exon_region[i][1]) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        // Smith-Waterman 算法的主要函數，進行本地序列對齊
+        function smithWaterman(seq1, seq2) {
+            //從seq1,seq2移除所有非英文字母的文字
+            seq1 = seq1.replace(/[^A-Z]/g, '');
+            seq2 = seq2.replace(/[^A-Z]/g, '');
+            const m = seq1.length;  // seq1（wild type）的長度
+            const n = seq2.length;  // seq2（user input）的長度
+
+            // 初始化一個 (m+1)x(n+1) 的分數矩陣和 gap 記錄矩陣
+            const scoreMatrix = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+            //console.log(seq1,seq2,m,n,scoreMatrix);
+            const gapInSeq1Matrix = Array.from({ length: m + 1 }, () => Array(n + 1).fill(false));
+            const gapInSeq2Matrix = Array.from({ length: m + 1 }, () => Array(n + 1).fill(false));
+
+            let maxScore = 0;  // 用來記錄最高分數
+            let endI = 0, endJ = 0;  // 記錄分數最高的位置（用於回溯）
+
+            // 填充分數矩陣，並且追蹤每個格子的來源
+            for (let i = 1; i <= m; i++) {
+                for (let j = 1; j <= n; j++) {
+                    const matchMismatch = seq1[i - 1] === seq2[j - 1] ? matchScore : mismatchScore;
+
+                    // 從左上方、左邊和上方獲得分數，並決定最佳來源
+                    let scoreFromDiag = scoreMatrix[i - 1][j - 1] + matchMismatch;
+                    let scoreFromLeft = gapInSeq1Matrix[i][j - 1]
+                        ? scoreMatrix[i][j - 1] + gapExtendScore
+                        : scoreMatrix[i][j - 1] + gapOpenScore;
+                    let scoreFromUp = gapInSeq2Matrix[i - 1][j]
+                        ? scoreMatrix[i - 1][j] + gapExtendScore
+                        : scoreMatrix[i - 1][j] + gapOpenScore;
+
+                    // 確定當前格子最大分數（如果所有分數都小於 0，則選擇 0，表示本地比對結束）
+                    scoreMatrix[i][j] = Math.max(
+                        scoreFromDiag,
+                        scoreFromLeft,
+                        scoreFromUp,
+                        0
+                    );
+
+                    // 記錄這個位置是否來自左邊或上方，以便追蹤是否為 gap
+                    if (scoreMatrix[i][j] === scoreFromLeft) {
+                        gapInSeq1Matrix[i][j] = true;
+                    }
+                    if (scoreMatrix[i][j] === scoreFromUp) {
+                        gapInSeq2Matrix[i][j] = true;
+                    }
+
+                    // 如果當前分數超過最大分數，更新最大分數和位置
+                    if (scoreMatrix[i][j] > maxScore) {
+                        maxScore = scoreMatrix[i][j];
+                        endI = i;
+                        endJ = j;
+                    }
+                }
+            }
+            // 印出分數矩陣
+
+            // 開始回溯過程，從分數最高的位置回溯以構建對齊結果
+            let alignedSeq1 = '';  // 存儲對齊後的 wild-type 序列
+            let alignedSeq2 = '';  // 存儲對齊後的 user 輸入序列
+            let alignmentString = '';  // 存儲對齊結果的比對標誌
+            let i = endI;
+            let j = endJ;
+
+            // 記錄回溯的起始位置（對應 wild-type 與 user 輸入的序列位置）
+            let wildTypeEndPos = i;
+            let userSeqEndPos = j;
+
+            // 逐步回溯對齊矩陣，直到遇到分數為 0 的格子
+            while (i > 0 && j > 0 && scoreMatrix[i][j] > 0) {
+                if (seq1[i - 1] === seq2[j - 1]) {
+                    // 如果兩個字符匹配，將兩個字符加入對齊序列中，並記錄匹配標誌
+                    alignedSeq1 = `${seq1[i - 1]}` + alignedSeq1;
+                    alignedSeq2 = `${seq2[j - 1]}` + alignedSeq2;
+                    alignmentString = '|' + alignmentString;
+                    i--;
+                    j--;
+                } else if (scoreMatrix[i][j] === scoreMatrix[i - 1][j - 1] + mismatchScore) {
+                    // 如果兩個字符不匹配，處理為 mismatch
+                    alignedSeq1 = `${seq1[i - 1]}` + alignedSeq1;
+                    alignedSeq2 = `${seq2[j - 1]}` + alignedSeq2;
+                    alignmentString = ' ' + alignmentString;  // 表示不匹配
+                    i--;
+                    j--;
+                } else if (scoreMatrix[i][j] === scoreMatrix[i - 1][j] + gapOpenScore || scoreMatrix[i][j] === scoreMatrix[i - 1][j] + gapExtendScore) {
+                    // 如果來自上方，表示 wild-type 中有一個 gap
+                    alignedSeq1 = `${seq1[i - 1]}` + alignedSeq1;
+                    alignedSeq2 = '-' + alignedSeq2;
+                    alignmentString = ' ' + alignmentString;
+
+                    // 如果是連續的 gap，繼續追溯連續的 gap
+                    while (i > 1 && scoreMatrix[i][j] === scoreMatrix[i - 1][j] + gapExtendScore) {
+                        i--;
+                        alignedSeq1 = `${seq1[i - 1]}` + alignedSeq1;
+                        alignedSeq2 = '-' + alignedSeq2;
+                        alignmentString = ' ' + alignmentString;
+                    }
+                    i--;
+                } else {
+                    // 如果來自左方，表示 user 輸入序列中有一個 gap
+                    alignedSeq1 = '-' + alignedSeq1;
+                    alignedSeq2 = `${seq2[j - 1]}` + alignedSeq2;
+                    alignmentString = ' ' + alignmentString;
+
+                    // 如果是連續的 gap，繼續追溯連續的 gap
+                    while (j > 1 && scoreMatrix[i][j] === scoreMatrix[i][j - 1] + gapExtendScore) {
+                        j--;
+                        alignedSeq1 = '-' + alignedSeq1;
+                        alignedSeq2 = `${seq2[j - 1]}` + alignedSeq2;
+                        alignmentString = ' ' + alignmentString;
+                    }
+                    j--;
+                }
+            }
+            // 返回對齊結果和起始位置
+            wildTypeStart = i + 1;
+            userSeqStart = j + 1;
+            return { alignedSeq1, alignmentString, alignedSeq2, wildTypeStart, userSeqStart, wildTypeEndPos, userSeqEndPos };
+        }
+        function conv_1aa_to_3aa(aa) {
+            const aa_1to3 = {
+                'A': 'Ala', 'R': 'Arg', 'N': 'Asn', 'D': 'Asp', 'C': 'Cys',
+                'Q': 'Gln', 'E': 'Glu', 'G': 'Gly', 'H': 'His', 'I': 'Ile',
+                'L': 'Leu', 'K': 'Lys', 'M': 'Met', 'F': 'Phe', 'P': 'Pro',
+                'S': 'Ser', 'T': 'Thr', 'W': 'Trp', 'Y': 'Tyr', 'V': 'Val',
+                '*': 'Ter'
+            };
+            return aa_1to3[aa] || 'X';
+        }
+        function convert_DNA_to_aa(dna) {
+            //remove non ATCG characters
+            dna = dna.replace(/[^ATCG]/g, '');
+            console.log("Raw DNA to AA: ", dna);
+            //定義氨基酸縮寫
+            const aa = {
+                'TTT': 'F', 'TTC': 'F', 'TTA': 'L', 'TTG': 'L',
+                'TCT': 'S', 'TCC': 'S', 'TCA': 'S', 'TCG': 'S',
+                'TAT': 'Y', 'TAC': 'Y', 'TAA': '*', 'TAG': '*',
+                'TGT': 'C', 'TGC': 'C', 'TGA': '*', 'TGG': 'W',
+                'CTT': 'L', 'CTC': 'L', 'CTA': 'L', 'CTG': 'L',
+                'CCT': 'P', 'CCC': 'P', 'CCA': 'P', 'CCG': 'P',
+                'CAT': 'H', 'CAC': 'H', 'CAA': 'Q', 'CAG': 'Q',
+                'CGT': 'R', 'CGC': 'R', 'CGA': 'R', 'CGG': 'R',
+                'ATT': 'I', 'ATC': 'I', 'ATA': 'I', 'ATG': 'M',
+                'ACT': 'T', 'ACC': 'T', 'ACA': 'T', 'ACG': 'T',
+                'AAT': 'N', 'AAC': 'N', 'AAA': 'K', 'AAG': 'K',
+                'AGT': 'S', 'AGC': 'S', 'AGA': 'R', 'AGG': 'R',
+                'GTT': 'V', 'GTC': 'V', 'GTA': 'V', 'GTG': 'V',
+                'GCT': 'A', 'GCC': 'A', 'GCA': 'A', 'GCG': 'A',
+                'GAT': 'D', 'GAC': 'D', 'GAA': 'E', 'GAG': 'E',
+                'GGT': 'G', 'GGC': 'G', 'GGA': 'G', 'GGG': 'G'
+            };
+            //將DNA序列轉換為氨基酸序列
+            let aa_seq = '';
+            for (let i = 0; i < dna.length; i += 3) {
+                aa_seq += aa[dna.slice(i, i + 3)] || 'X';
+            }
+            return aa_seq;
+        }
+        // 格式化對齊結果的函數，將其顯示在頁面上
+        function formatAlignment(alignedSeq1, alignmentString, alignedSeq2, wildTypeStart, userSeqStart, show_exon_label = true) {
+            const lineLength = 100;  // 每行的顯示長度
+            let formattedResult = '';
+            wildTypeGapCount = 0;
+            userSeqGapCount = 0;
+            // 按照每行 100 個字符的格式來顯示對齊結果，並顯示位置
+            for (let i = 0; i < alignedSeq1.length; i += lineLength) {
+                //exon標記的時候只要考慮到前一行的gap數量就好了，所以必須放在這裡
+                current_pos = wildTypeStart + i - wildTypeGapCount;
+                wildTypeGapCount += alignedSeq1.slice(i, i + lineLength).split('-').length - 1;
+                userSeqGapCount += alignedSeq2.slice(i, i + lineLength).split('-').length - 1;
+                //EXON HIGHLIGHT
+                exon_highlight = ""
+
+                for (let j = 0; j < lineLength; j++) {
+                    //console.log(current_pos, in_exon_region(current_pos, wildTypeExon));
+                    //如果i+j已經超過了alignedSeq1的長度，就不用再檢查了
+                    if (i + j >= alignedSeq1.length) {
+                        break;
+                    }
+                    //檢查是否剛好遇到gap，若是，就加一個空格，並且不計算在內
+                    if (alignedSeq1[i + j] == "-") {
+                        exon_highlight += " ";
+                        continue;
+                    }
+                    if (in_exon_region(current_pos, wildTypeExon)) {
+                        exon_highlight += "^";
+                        current_pos = current_pos + 1;
+                    } else {
+                        exon_highlight += " ";
+                        current_pos = current_pos + 1;
+                    }
+                }
+                //console.log("換行");
+                if (show_exon_label) {
+                    formattedResult += `Exon     : ${exon_highlight}\n`;
+                }
+                formattedResult += `Wild Type: ${alignedSeq1.slice(i, i + lineLength)} (${wildTypeStart + i - 1 + lineLength - wildTypeGapCount})\n`;
+                formattedResult += `           ${alignmentString.slice(i, i + lineLength)}\n`;
+                formattedResult += `User Seq : ${alignedSeq2.slice(i, i + lineLength)} (${userSeqStart + i - 1 + lineLength - userSeqGapCount})\n\n`;
+            }
+
+            return formattedResult;
+        }
+
+
+        function remove_intron(userSeq, wildTypeSeq, wildTypeStart, exon_region) {
+            let userSeqCDS = "";
+            current_pos = wildTypeStart;
+            flag = false;
+            for (let i = 0; i < wildTypeSeq.length; i++) {
+                //如果wildTypeSeq剛好是gap就不能計算current_pos，並且沿用上一個flag
+                if (wildTypeSeq[i] == "-") {
+                    if (flag) {
+                        userSeqCDS += userSeq[i];
+                    }
+                    continue;
+                }
+                flag = in_exon_region(current_pos, exon_region);
+
+                if (flag) {
+                    userSeqCDS += userSeq[i];
+                }
+                current_pos = current_pos + 1;
+            }
+            //console.log(userSeqCDS);
+            return userSeqCDS;
+        }
+        // 當按下"Compare Exons"按鈕時，觸發此函數
+        function findExonMutations() {
+            // 獲取 user 輸入的序列，並去掉空格或換行符
+            const userSequence = document.getElementById('userSequence').value.toUpperCase().replace(/\s+/g, '');
+            if (!userSequence) {
+                alert("Please input a valid sequence.");  // 若無輸入則提示
+                return;
+            }
+
+            // 執行 Smith-Waterman 對齊算法
+            const alignment = smithWaterman(wildTypeSequence, userSequence);
+            const alignedWildType = alignment.alignedSeq1;
+            const alignedUserSeq = alignment.alignedSeq2;
+            const alignmentString = alignment.alignmentString;
+            console.log(alignment);
+            // 計算 wild-type 和 user 序列的起始位置
+            const wildTypeStart = alignment.wildTypeStart;
+            const userSeqStart = alignment.userSeqStart;
+
+            // 顯示對齊結果
+            let resultsHTML = "<h3>Step1: Align to Wild Type</h3>";
+            resultsHTML += "<pre>" + formatAlignment(alignedWildType, alignmentString, alignedUserSeq, wildTypeStart, userSeqStart) + "</pre>";
+
+            // 將結果插入到 HTML 頁面中
+            document.getElementById('results').innerHTML = resultsHTML;
+
+
+            //Step2: Remove intron from user sequence
+            let resultsHTML2 = "<h3>Step2: Remove Intron from User Sequence</h3>";
+            let userSeqIntronRemoved = remove_intron(alignedUserSeq, alignedWildType, wildTypeStart, wildTypeExon);
+            //每100個插入一個換行
+            userSeqIntronRemoved = userSeqIntronRemoved.match(/.{1,100}/g).join("\n");
+            //將結果插入到 HTML 頁面中
+            resultsHTML2 += "<pre>" + userSeqIntronRemoved + "</pre>";
+            document.getElementById('results').innerHTML += resultsHTML2;
+
+            //Step3: 轉譯為a.a.序列
+            //計算codon的shift
+            let codon_shift = (wildTypeStart - 1) % 3;
+            if (codon_shift == 1) {
+                codon_shift = 2;
+            }
+            else if (codon_shift == 2) {
+                codon_shift = 1;
+            }
+            let resultsHTML3 = "<h3>Step3: Translate to Amino Acid Sequence (codon shift: " + codon_shift + ")</h3>";
+            //將DNA序列轉為氨基酸序列
+            let aa_seq = convert_DNA_to_aa(userSeqIntronRemoved.slice(codon_shift));
+            //每100個插入一個換行
+            aa_seq = aa_seq.match(/.{1,100}/g).join("\n");
+            //將結果插入到 HTML 頁面中
+            resultsHTML3 += "<pre>" + aa_seq + "</pre>";
+
+            document.getElementById('results').innerHTML += resultsHTML3;
+
+            //Step4: 與wildTypeAA比對
+            let resultsHTML4 = "<h3>Step4: Compare to Wild Type Amino Acid Sequence</h3>";
+            const alignment_aa = smithWaterman(wildTypeAA, aa_seq);
+            const alignedWildTypeAA = alignment_aa.alignedSeq1;
+            const alignedUserSeqAA = alignment_aa.alignedSeq2;
+            const alignmentStringAA = alignment_aa.alignmentString;
+            // 計算 wild-type 和 user 序列的起始位置
+            const wildTypeStartAA = alignment_aa.wildTypeStart;
+            const userSeqStartAA = alignment_aa.userSeqStart;
+            // 顯示對齊結果
+            resultsHTML4 += "<pre>" + formatAlignment(alignedWildTypeAA, alignmentStringAA, alignedUserSeqAA, wildTypeStartAA, userSeqStartAA, show_exon_label = false) + "</pre>";
+            // 將結果插入到 HTML 頁面中
+            document.getElementById('results').innerHTML += resultsHTML4;
+            console.log("AA alignment: ", alignment_aa);
+            //Step5: 顯示a.a.突變位點，例如：A123T
+            let resultsHTML5 = "<h3>Step5: Show Amino Acid Mutation</h3>";
+            let mutation_info = "";
+            for (let i = 0; i < alignedWildTypeAA.length; i++) {
+                if (alignedWildTypeAA[i] != alignedUserSeqAA[i]) {
+                    if (alignedWildTypeAA[i] == "-") {
+                        mutation_info += "Insertion: " + conv_1aa_to_3aa(alignedUserSeqAA[i]) + " at position " + (wildTypeStartAA + i) + "\n";
+                    }
+                    else if (alignedUserSeqAA[i] == "-") {
+                        mutation_info += "Deletion: " + conv_1aa_to_3aa(alignedWildTypeAA[i]) + " at position " + (wildTypeStartAA + i) + "\n";
+                    }
+                    else {
+                        mutation_info += "Mutation: " + conv_1aa_to_3aa(alignedWildTypeAA[i]) + (wildTypeStartAA + i) + conv_1aa_to_3aa(alignedUserSeqAA[i]) + "\n";
+                    }
+                }
+            }
+            resultsHTML5 += "<pre>" + mutation_info + "</pre>";
+            document.getElementById('results').innerHTML += resultsHTML5;
+        }
+    </script>
+
+    <li>備註：<br>
+        用來當模板的是KU242352，用來當demo序列的是ON863900
+    </li>
+    <li>
+        已知問題日誌：<br>
+        1.對於原本就沒有intron的序列，align會出問題，導致錯誤的再次被裁切intron　→　Align方法要更精緻，另外可能要增加一個勾選框，讓使用者自行決定是否要裁切intron
+        例如：
+        >XM_003170065.1 Nannizzia gypsea CBS 118893 squalene monooxygenase (MGYG_07358), partial mRNA
+        ATGGTTGTAGAGGCTCCTCCTTGCTTCCAGAACCGCAACGGCTTTGCGAATGGCTCCGCGAAGCCCAAGG
+        CCTACCGCAACGAAGCCCAGCGACGACGACACGAACACCATGAAGCGGACGTTGTGATAATTGGCGCTGG
+        AATTGCTGGGTGTACGCTGGCCGTTGCCTTGGGAAACCAGGGACGAAGCGTCATCTTGCTAGAGAGGTCG
+        TTGAAGGAGCCTGATCGGATAGTGGGAGAGCTGCTCCAGCCCGGCGGGGTGAGAGCCCTTGAACAACTTG
+        GCCTGAGAGATTGCCTGGAAGGAATAGACGCCGTGAGGACATATGGATACGATGTGATATACTTTGGCAA
+        TGGTGTGAAGATACCTTTTCCCAGTGATGCCAACGAGAAGATTCTTGAGGGCAGATGTTTCCACCACGGC
+        CGTTTGATCATGCGCCTTCGAGAGGCCGCTGCTGCGAACCCGAACGTCACTATTGTCGAGACCAAGGCCG
+        TCTCTACAATAAAATCAACACATACGGAGGATATTCTTGGTGTCCAATGCCTGACCAATGGCAAACAAGA
+        CTTCTACTTTGCGCCCCTAACCGTTGTCGCGGATGGATATGCCTCTACCTTCCGAAAGGAATATCTCCCC
+        ATAGCACCAGTCGCCAAATCAAAATTCTGGGGCCTAGAGCTTATCGATGCTAAATTGCCGATGCCGGGAC
+        ATGGCCATGTTGTTCTGGGCGATTTCCCCCCTATATTGATATACCAGATTGGAGAACATGAGACTCGGAT
+        CCTAATTGATATACCGGACAACCTGCCTTCAGCGTCAATTGCCAACGGAGGTGTAAAGGGCCACATGCGT
+        AATGTCGTCCTTCCTTCTTTGCCTGAGTGTATACGGCCCTCGTTTGAAGCCGCGTTAGAGAAGGGAGGGT
+        TCCGATCGATGCCAAATTCTTTCCTCCGCCCTGTCACAAACAGGATTCCCGGTTTGATGTTCCTAGGAGA
+        TTCGTTGAACATGCGTCACCCACTCACTGGTGGTGGTATGACCGTGGCATTTAATGATGTTGTCCTCCTT
+        CGAGACCTGCTCAGTGTGGAAGCAGTGCCTGATTTAAGTAATACCAAACTTGTTTTAAAACAGCTTTCCA
+        AGTTCCATTGGCAACGAAAGTCATTAACTTCTGTCATCAATATTCTTGCCCAGGCTTTATATTCTATATT
+        CGCTGCTGGTGACCCCAATTTGAAAGTCTTGCAACGGGGTTGCTTCAAATACTTCCAACTTGGACTTATA
+        GACGGCCCCGTCGGACTGTTATCTGGCATAATTCGATCGCCAATGGTTCTATTCCGCCATTTTTACTCAG
+        TTGCCTTCCTGGCTATTTGGCTACATCTCACCAGCAGGCCCATCTATCTCCTCCCCATAACCCTTTTCGA
+        ATGCATAATAGTGTTCCTGACTGCCTGCAAGGTCATTCTCCCCTTCATATTCTCGGAAATGTTAAGCTAG
+    </li>
+</body>
+
+</html>
