@@ -11,20 +11,41 @@
     <style>
         body {
             font-family: Arial, sans-serif;
+            background-color: #f0f2f5;
+        }
+
+        #container {
+            max-width: 90%;
+            margin: 0 auto;
             padding: 20px;
+        }
+
+        form {
+            margin-bottom: 20px;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        label {
+            font-weight: bold;
         }
 
         textarea {
             width: 100%;
             height: 200px;
+            margin-bottom: 10px;
+            padding: 10px;
+            font-family: 'Courier New', Courier, monospace;
+            border: 1px solid #ccc;
+            border-radius: 4px;
         }
 
         button {
-            margin-top: 10px;
-            padding: 10px;
+            margin-right: 10px;
         }
 
-        .results {
+        #results {
             margin-top: 20px;
         }
 
@@ -50,20 +71,26 @@
 
 <body>
 
-    <h1>SQLE analyzer v0.2</h1>
-    <p>Input your sequence below and compare it to the wild-type sequence to identify exon mutations.</p>
+    <div id="container">
+        <h1 class="text-center">SQLE Analyzer v0.2</h1>
+        <p>Input your sequence below and compare it to the wild-type sequence to identify exon mutations.</p>
 
-    <textarea id="userSequence" placeholder="Paste your sequence here..."></textarea>
-    <button onclick="findExonMutations()">Compare Exons</button>
-    <!-- Demo button -->
-    <button onclick="document.getElementById('userSequence').value = demo_Sequence">Demo</button>
-    <!-- Remove Introns Checkbox -->
-    <div>
-        <input type="checkbox" id="removeIntrons" checked> Remove Introns
+        <form id="sequence-form">
+            <div class="form-group">
+                <label for="userSequence">Enter your sequence:</label>
+                <textarea id="userSequence" placeholder="Paste your sequence here..."></textarea>
+            </div>
+            <div class="form-group form-check">
+                <input type="checkbox" class="form-check-input" id="removeIntrons" checked>
+                <label class="form-check-label" for="removeIntrons">Remove Introns</label>
+            </div>
+            <button type="button" class="btn btn-primary" onclick="findExonMutations()">Compare Exons</button>
+            <button type="button" class="btn btn-secondary" onclick="document.getElementById('userSequence').value = demo_Sequence">Demo</button>
+            <button type="button" class="btn btn-danger" onclick="resetForm()">Reset</button>
+        </form>
+
+        <div id="results" class="results"></div>
     </div>
-
-    <div class="results" id="results"></div>
-
     <script>
         // CSV 資料的 URL
         //const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRpKb8fxK6zS5-m5HQGzfhZPSqztbLym83Iy4pJf3DKcvrIfgZpkX_F7nWpO9WFhQ/pub?gid=1426404362&single=true&output=csv';
@@ -108,7 +135,7 @@
                 });
         }
 
-        window.onload = function() {
+        window.onload = function () {
             loadCSVData();
         };
 
@@ -530,6 +557,15 @@
             }
             resultsHTML5 += "<pre>" + mutation_info + "</pre>";
             document.getElementById('results').innerHTML += resultsHTML5;
+        }
+        // Function to reset the form and results
+        function resetForm() {
+            // Clear form input
+            document.getElementById('userSequence').value = '';
+            // Reset remove introns checkbox
+            document.getElementById('removeIntrons').checked = true;
+            // Clear results
+            document.getElementById('results').innerHTML = '';
         }
     </script>
 
