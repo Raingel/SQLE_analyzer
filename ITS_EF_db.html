@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 
@@ -77,6 +76,7 @@
             </div>
             <button type="button" class="btn btn-primary" onclick="performAlignment()">Align Sequences</button>
             <button type="button" class="btn btn-secondary" onclick="fillDemoSequences()">Fill Demo Sequences</button>
+            <button type="button" class="btn btn-secondary" onclick="resetForm()">Reset</button>
         </form>
 
         <div id="results">
@@ -581,7 +581,7 @@ cacattaacttggtcgttatcggccacgtcgattccggaaagtccaccactactggtaagccagccaccaaatatacctt
         // Function to display results
         function displayResults(results) {
             const tableBody = $('#similarityTable tbody');
-     
+
             // Initialize or re-initialize DataTable
             if ($.fn.DataTable.isDataTable('#similarityTable')) {
                 $('#similarityTable').DataTable().clear().destroy(); // Clear DataTable data and destroy
@@ -619,6 +619,26 @@ accccgcccgcccggcttgagatacagcctgggcggcgctggaggtcgccggcagttgcccattcttgcctactgaccca
 
             document.getElementById('ef-input').value = `>Arthroderma chiloniense_CBS 144073 (T)
 gcgctattctcatcattgccgccggtactggtgagttcgaggctggtatctccaaggatggtcagactcgtgagcacgctctgctcgccttcaccctcggtgtcaagcagctcattgtcgccatcaacaagatggacaccacccaatggtccgagtctcgtttcgctgaaatcatcaaggaagtcaccaacttcatcaagaaggtcggatacaaccccaagggtgttccattcgtcccaatctctggtttcaacggtgacaacatgattgaggcttcctccaactgcccatggtacaagggatggaacaaggagaccgccgctggcaaggcctccggtaagaccctcctcgaggccattgacgccatcgacatgccaacccgtcctaccgacaagccactccgtctcccactccaggatgtctacaagatctccggtattggcacagtgccagtcggtcgtgttgagaccggtaccatcaagcctggtatggtcgtcacctttgcccccgccaacgtcaccactgaagtcaagtccgtcgagatgcaccaccagcagctccaggccggtctccccggtgacaacgtcggcttcaacgtcaagaacgtttccgtcaaggaagtccgccgtggtaacgttgccggtgactccaagaccgatccaccaaagggctgtgcttccttcaacgcccaggtcatcgtcctcaaccaccccggtcaggtcggtgctggttacgccccagtcctcgattgccacactgcccacattgcttgcaagttctctgagctcctcgagaagatcgatcgtcgtaccggtaaatccgttgagaacaaccccaagttcgtcaagtctggtgatgccgctatcgtcaagatgattccctccaagcccatgtgcgttgaggctttcactgactaccccccactcg`;
+        }
+        function resetForm() {
+            // 清除表單輸入
+            document.getElementById('its-input').value = '';
+            document.getElementById('ef-input').value = '';
+
+            // 清除表格內容並銷毀DataTable
+            if ($.fn.DataTable.isDataTable('#similarityTable')) {
+                $('#similarityTable').DataTable().clear().destroy();
+            }
+
+            // 清空表格的tbody
+            $('#similarityTable tbody').empty();
+
+            // 重新初始化空的DataTable
+            $('#similarityTable').DataTable({
+                paging: true,
+                searching: true,
+                order: [[3, 'desc']]
+            });
         }
     </script>
 </body>
