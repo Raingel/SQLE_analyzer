@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Strains Phenotyping Filter</title>
+  <!-- Bootstrap CSS -->
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <!-- Datatables CSS -->
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css">
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f0f2f5;
+    }
+
+    #container {
+      max-width: 90%;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    form {
+      margin-bottom: 20px;
+      background-color: #fff;
+      padding: 20px;
+      border-radius: 8px;
+    }
+
+    label {
+      font-weight: bold;
+    }
+
+    .center-text {
+      text-align: center;
+    }
+
+    .form-inline .form-group {
+      margin-right: 10px;
+    }
+
+    .filter-label {
+      margin-top: 5px;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="container">
+    <h1 class="text-center">Strains Phenotyping Filter</h1>
+
+    <!-- 篩選表單 -->
+    <form id="filter-form">
+      <div class="row" id="filter-row">
+        <!-- 動態篩選元素將插入於此 -->
+      </div>
+      <div class="mt-3">
+        <button type="button" class="btn btn-primary" id="apply-filters">Apply Filters</button>
+        <button type="button" class="btn btn-secondary" id="reset-filters">Reset Filters</button>
+      </div>
+    </form>
+
+    <!-- 結果表格 -->
+    <div class="table-responsive">
+      <table id="strainsTable" class="table table-striped table-bordered">
+        <thead>
+          <tr>
+            <th>Strain_ID</th>
+            <th>Species</th>
+            <th>Growth_Speed_mm/day</th>
+            <th>Colony_Color</th>
+            <th>Colony_Texture</th>
+            <th>Pigmentation</th>
+            <th>Macroconidia_Shape</th>
+            <th>Macroconidia_Length</th>
+            <th>Microconidia_Shape</th>
+            <th>Spiral_Hyphae</th>
+            <th>Urease_Test</th>
+            <th>Hair_Perforation_Test</th>
+            <th>BCP_MSG_pH</th>
+            <th>Hydrolysis</th>
+            <th>Pigmentation_BCP_MSG</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- 由 JavaScript 動態生成 -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- JS Libraries -->
+  <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+  <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+  <script>
+    // 1. 直接將 CSV 資料內嵌在網頁中，避免 CORS
+    const csvData = `Strain_ID,Species,Growth_Speed_mm/day,Colony_Color,Colony_Texture,Pigmentation,Macroconidia_Shape,Macroconidia_Length,Microconidia_Shape,Spiral_Hyphae,Urease_Test,Hair_Perforation_Test,BCP_MSG_pH,Hydrolysis,Pigmentation_BCP_MSG
+T1,T. mentagrophytes,3.04,Brown,Smooth,None,Oval,10,Round,Present,Positive,Positive,Yellow,Positive,Light Brown
+T2,T. indotineae,4.87,Yellow,Rough,Light Brown,Cylindrical,6,Round,Present,Positive,Negative,Purple,Negative,Dark Brown
+T3,T. indotineae,4.64,White,Velvety,Dark Brown,Oval,10,Cylindrical,Absent,Positive,Negative,Purple,Negative,Dark Brown
+T4,T. interdigitale,3.6,Green,Rough,Dark Brown,Round,5,Round,Present,Positive,Negative,Purple,Positive,None
+T5,T. indotineae,2.82,Brown,Velvety,None,Oval,5,Cylindrical,Absent,Negative,Negative,Yellow,Positive,None
+T6,T. mentagrophytes,1.63,Brown,Velvety,None,Cylindrical,6,Round,Present,Positive,Negative,Purple,Negative,Dark Brown
+T7,T. indotineae,2.77,Brown,Smooth,Light Brown,Round,15,Oval,Present,Positive,Positive,Purple,Negative,Light Brown
+T8,T. indotineae,3.63,White,Rough,Light Brown,Oval,9,Round,Absent,Negative,Negative,Purple,Negative,Light Brown
+T9,T. mentagrophytes,2.98,White,Powdery,Light Brown,Cylindrical,12,Oval,Absent,Positive,Positive,Purple,Positive,Dark Brown
+T10,T. indotineae,2.29,Green,Powdery,Dark Brown,Round,8,Oval,Present,Positive,Negative,Purple,Positive,Light Brown`;
+
+    // 2. 將 CSV parse 成陣列物件：[{col1: val1, col2: val2, ...}, ...]
+    function parseCSV(csv) {
+      const lines = csv.trim().split('\n');
+      const headers = lines[0].split(',');
+
+      const data = [];
+      for (let i = 1; i < lines.length; i++) {
+        const row = lines[i].split(',');
+        const obj = {};
+        headers.forEach((header, index) => {
+          obj[header] = row[index];
+        });
+        data.push(obj);
+      }
+      return data;
+    }
+
+    // 3. 從 data 中取出每個欄位的所有 distinct 值，用來生成篩選用的下拉選單
+    function getDistinctValues(data, columnName) {
+      const distinctSet = new Set();
+      data.forEach(item => {
+        distinctSet.add(item[columnName]);
+      });
+      return Array.from(distinctSet).filter(val => val !== undefined && val !== '').sort();
+    }
+
+    // 4. 依照 CSV 的欄位動態生成篩選下拉選單
+    function buildFilterOptions(data, headers) {
+      const filterRow = document.getElementById('filter-row');
+      filterRow.innerHTML = ''; // 先清空
+
+      headers.forEach(header => {
+        // 為每一個欄位，找出所有可能值
+        const distinctValues = getDistinctValues(data, header);
+
+        // 建立一個 col-md 的區塊
+        const colDiv = document.createElement('div');
+        colDiv.classList.add('form-group', 'col-md-3');
+
+        // 建立 label
+        const label = document.createElement('label');
+        label.textContent = header;
+        label.setAttribute('for', `filter-${header}`);
+
+        // 建立 select
+        const select = document.createElement('select');
+        select.classList.add('form-control');
+        select.id = `filter-${header}`;
+        // 預設第一個選項：不篩選(或顯示All)
+        const allOption = document.createElement('option');
+        allOption.value = '';
+        allOption.textContent = '-- All --';
+        select.appendChild(allOption);
+
+        distinctValues.forEach(val => {
+          const opt = document.createElement('option');
+          opt.value = val;
+          opt.textContent = val;
+          select.appendChild(opt);
+        });
+
+        colDiv.appendChild(label);
+        colDiv.appendChild(select);
+        filterRow.appendChild(colDiv);
+      });
+    }
+
+    // 5. 根據篩選器的值過濾資料
+    function filterData(data, headers) {
+      // 取得每一個欄位的選取值
+      const filterValues = {};
+      headers.forEach(header => {
+        const select = document.getElementById(`filter-${header}`);
+        filterValues[header] = select ? select.value : '';
+      });
+
+      // 執行過濾
+      const filteredData = data.filter(item => {
+        return headers.every(header => {
+          // 如果該欄位沒有選值 (value = '')，代表不篩選該欄位
+          if (filterValues[header] === '') return true;
+          // 否則必須符合選取值
+          return item[header] === filterValues[header];
+        });
+      });
+
+      return filteredData;
+    }
+
+    // 6. 顯示結果至 DataTable (修正版)
+    let table; // 全域參考，以便重建 DataTable
+    function displayDataTable(data, headers) {
+      // 如果表格已經被 DataTables 初始化過，先銷毀
+      if ($.fn.DataTable.isDataTable('#strainsTable')) {
+        $('#strainsTable').DataTable().destroy();
+      }
+
+      // 先清空 tbody
+      const tbody = $('#strainsTable tbody');
+      tbody.empty();
+
+      // 將過濾後的資料插入表格
+      data.forEach(row => {
+        let tr = '<tr>';
+        headers.forEach(header => {
+          tr += `<td>${row[header] || ''}</td>`;
+        });
+        tr += '</tr>';
+        tbody.append(tr);
+      });
+
+      // 重新初始化 DataTables
+      table = $('#strainsTable').DataTable({
+        paging: true,
+        searching: true,
+        ordering: true,
+        order: [[0, 'asc']] // 依 Strain_ID 排序
+      });
+    }
+
+    // 7. 主要流程
+    $(document).ready(function () {
+      // 解析 CSV
+      const rawData = parseCSV(csvData);
+
+      // 取得欄位名稱 (順序與 CSV header 保持一致)
+      const headers = Object.keys(rawData[0]);
+
+      // 生成篩選用下拉選單
+      buildFilterOptions(rawData, headers);
+
+      // 預設顯示所有資料
+      displayDataTable(rawData, headers);
+
+      // 綁定「套用篩選」按鈕事件
+      $('#apply-filters').click(function () {
+        const filtered = filterData(rawData, headers);
+        displayDataTable(filtered, headers);
+      });
+
+      // 綁定「重置」按鈕事件
+      $('#reset-filters').click(function () {
+        // 將所有下拉重置回 -- All --
+        headers.forEach(header => {
+          const select = document.getElementById(`filter-${header}`);
+          if (select) select.value = '';
+        });
+        // 顯示全部
+        displayDataTable(rawData, headers);
+      });
+    });
+  </script>
+</body>
+
+</html>
